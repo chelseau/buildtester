@@ -641,7 +641,7 @@ def token_getter():
     return Options.github.access_token
 
 
-def main():
+def main(argv=sys.argv[1:]):
     """
     Startup the server
 
@@ -649,6 +649,11 @@ def main():
     """
 
     global RUNNING
+
+    if len(argv) > 0:
+
+        # Options file specified
+        Options.files.settings = argv[0]
 
     try:
 
