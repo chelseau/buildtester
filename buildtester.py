@@ -44,6 +44,7 @@ class Options:
         port = 7000
         title = 'Example'
         cleanup_frequency = 300
+        default_context = 'build'
 
     class status:
         """
@@ -208,12 +209,13 @@ def init_files():
     return True
 
 
-def write_build_file(data, status, sha1):
+def write_build_file(data, status, sha1, context):
     """
     Writes the data to the build file for the given hash
     :param data: a list of data
     :param status: the status of the build
     :param sha1: the commit hash to use for the filename
+    :param context: The context of this status
     :return: None
     """
 
@@ -247,7 +249,7 @@ def write_build_file(data, status, sha1):
     data = dict(
         state=status,
         description=description,
-        context='build'
+        context=context
     )
 
     if Options.app.status_uri is not None:
@@ -285,7 +287,7 @@ def build(sha1):
     if not init_files():
 
         # Mark as error
-        write_build_file(None, 'error', sha1)
+        write_build_file(None, 'error', sha1, Options.app.default_context)
 
         # Abort
         return
@@ -293,7 +295,7 @@ def build(sha1):
     data = list()
 
     # Mark as pending
-    write_build_file(None, 'pending', sha1)
+    write_build_file(None, 'pending', sha1, Options.app.default_context)
 
     # Checkout commit
     stdout, ret = execute_command(['git', 'reset', '--hard', sha1])
@@ -305,10 +307,23 @@ def build(sha1):
     ))
 
     if ret != 0:
-        write_build_file(data, 'failure', sha1)
+        write_build_file(data, 'failure', sha1, Options.app.default_context)
         return
 
+    good_contexts = list()
+    bad_context = None
+
     for label, command in Options.commands.items():
+
+        # Expand tuple
+        context, command = command
+
+        if context != Options.app.default_context and context not in \
+                good_contexts:
+
+            # Mark as pending
+            write_build_file(None, 'pending', sha1, context)
+
         # Execute command
         stdout, ret = execute_command(command.split(" "))
 
@@ -318,12 +333,38 @@ def build(sha1):
             code=ret
         ))
 
-        if ret != 0:
-            write_build_file(data, 'failure', sha1)
-            return
+        if ret == 0:
 
-    # Write a success status
-    write_build_file(data, 'success', sha1)
+            if context not in good_contexts:
+
+                # Add to list of good contexts
+                good_contexts.append(context)
+        else:
+
+            # Build failed
+            write_build_file(data, 'failure', sha1, context)
+
+            # Remove
+            good_contexts.remove(context)
+            bad_context = context
+
+            # Stop processing
+            break
+
+    for context in good_contexts:
+        # Write a success status
+        write_build_file(data, 'success', sha1, context)
+
+    if bad_context is not None and Options.app.default_context != bad_context:
+
+        # Mark as failure if there were any failures and the default context
+        # was not already used
+        write_build_file(None, 'failure', sha1, Options.app.default_context)
+    elif bad_context is None and Options.app.default_context not in \
+            good_contexts:
+        # Mark as success if there were no failures and the default context
+        # was not already used
+        write_build_file(None, 'success', sha1, Options.app.default_context)
 
     # Cleanup temp dir
     clean_temp()
@@ -395,7 +436,8 @@ def watch_queue():
                             sha1 = sha1.strip()
 
                             # Mark as queued
-                            write_build_file(None, 'queued', sha1)
+                            write_build_file(None, 'queued', sha1,
+                                             Options.app.default_context)
 
                             # Add to queue
                             QUEUE.put(sha1)
@@ -465,7 +507,7 @@ def build_status(sha1):
             # Memory queue only
 
             # Mark as queued
-            write_build_file(None, 'queued', sha1)
+            write_build_file(None, 'queued', sha1, Options.app.default_context)
 
             # Just store in memory
             QUEUE.put(sha1)
@@ -577,7 +619,7 @@ def gh_push():
     else:
 
         # Mark as queued
-        write_build_file(None, 'queued', sha1)
+        write_build_file(None, 'queued', sha1, Options.app.default_context)
 
         # Just store in memory
         QUEUE.put(sha1)
@@ -672,6 +714,22 @@ def main():
     except ValueError:
         print("Invalid cleanup frequency specified!")
         sys.exit(1)
+
+    # Parse commands
+    commands = OrderedDict()
+    for label, command in Options.commands.items():
+        if '|' in label:
+            context, label = label.split('|')
+            context = context.lower()
+            label = label.title()
+        else:
+            context = Options.app.default_context
+
+        # Add to collection
+        commands[label] = context, command
+
+    # Replace commands in options
+    Options.commands = commands
 
     # Register routes
     if Options.app.push_endpoint != '':
