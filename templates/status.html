@@ -1,0 +1,44 @@
+<html>
+<head>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+
+    <title>{{ title }} | Build Details for {{ short_sha1 }} ({{ status_nice }})</title>
+
+    <style type="text/css">
+        ol {
+            list-style-type: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="jumbotron">
+        <h1>{{ title }}</h1>
+        <h2>Build Details</h2>
+        <p>Displaying build details for <code><a href="{{ commit_uri }}">{{ sha1 }}</a></code></p>
+        {% if message|length > 0 %}
+        <p>Latest commit message:</p>
+        <p class="alert alert-info">{{ message }}</p>
+        {% endif %}
+        <h2><span class="label label-{{ status_label }}">{{ status_nice }}</span></h2>
+        {% if data|length > 0 %}
+        <ol>
+            {% for action in data %}
+            <li>
+                <p>{{ action['cmd'] }}{% if action['code'] != 0 %}: Exit code: {{ action['code'] }}{% endif %}</p>
+                <pre>{{ action['out'] }}</pre>
+            </li>
+            {% endfor %}
+        </ol>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>
