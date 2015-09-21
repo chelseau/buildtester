@@ -1,0 +1,28 @@
+<html>
+<head>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+
+    <title>{{ title }}{% if short_sha1|length > 0 %} | Build Details for {{ short_sha1 }} ({{ status_nice }}){% endif %}</title>
+
+    <style type="text/css">
+        ol {
+            list-style-type: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="jumbotron">
+        <h1>{{ title }}</h1>
+        {% block body %}{% endblock %}
+    </div>
+</div>
+</body>
+</html>
