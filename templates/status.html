@@ -1,6 +1,5 @@
 {% extends "layout.html" %}
 {% block body %}
-    <h1>{{ title }}</h1>
     <h2>Build Details</h2>
     <p>Displaying build details for <code><a href="{{ commit_uri }}">{{ sha1 }}</a></code></p>
     {% if message|length > 0 %}
