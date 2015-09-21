@@ -185,9 +185,6 @@ def write_build_file(data, status, sha1):
             # Write a status only
             file_.write(json.dumps(dict(status=status), indent=4))
 
-    # Acquire GH lock
-    GITHUB_LOCK.acquire()
-
     description = getattr(Options.status, status)
 
     if status == 'queued':
@@ -196,25 +193,28 @@ def write_build_file(data, status, sha1):
         status = 'pending'
 
     # Update GH status
+    data = dict(
+        state=status,
+        description=description,
+        context='build'
+    )
+
+    if Options.app.status_uri is not None:
+
+        # Only set target url if it is configured
+        data['target_url'] = Options.app.status_uri.format(sha1=sha1)
+
+    # Acquire GH lock
+    GITHUB_LOCK.acquire()
+
     try:
-        data = dict(
-            state=status,
-            description=description,
-            context='build'
-        )
-
-        if Options.app.status_uri is not None:
-
-            # Only set target url if it is configured
-            data['target_url'] = Options.app.status_uri.format(sha1=sha1)
-
         github.post(Options.github.status_endpoint.format(sha1=sha1), data)
     except GitHubError as e:
         sys.stderr.write("Error posting to GitHub: {err}\n".format(
             err=str(e)))
-
-    # Release GH lock
-    GITHUB_LOCK.release()
+    finally:
+        # Release GH lock
+        GITHUB_LOCK.release()
 
 
 def build(sha1):
