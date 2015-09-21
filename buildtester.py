@@ -698,7 +698,7 @@ def main():
 
     app.run(port=Options.app.port)
 
-    # Put a terminating item in the queue
+    # Stop the threads
     RUNNING = False
 
     # Wait for threads to finish
