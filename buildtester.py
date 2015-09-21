@@ -43,6 +43,7 @@ class Options:
         push_endpoint = '/gh/push'
         port = 7000
         title = 'Example'
+        cleanup_frequency = 300
 
     class status:
         """
@@ -93,6 +94,56 @@ def clean_temp():
 
     # Remove temp path
     subprocess.call(['rm', '-rf', Options.files.temp])
+
+
+def retry_stale_builds():
+    """
+    Locates and reschedules stale builds
+    :return: None
+    """
+
+    global QUEUE
+
+    for root, dirs, files in os.walk(Options.files.builds):
+        for file in files:
+
+            # Absolute filename
+            filename = os.path.join(Options.files.builds, file)
+
+            try:
+
+                # Wrap this whole thing in a super generic try-catch because
+                # of potential corruption
+
+                # Open file
+                with open(filename, 'r') as file_:
+
+                    # JSON-decode file
+                    data = json.load(file_)
+
+                if data.get('status') == 'pending':
+
+                    print("Re-queuing stale job: {sha1}".format(sha1=file))
+
+                    # Put back in the queue. It failed in the middle of a build
+                    QUEUE.put(file)
+
+                    # Stop processing and get back to the actual queue process
+                    return
+
+            except Exception:
+
+                # Catch any exceptions
+                if os.path.getmtime(filename) < time.time() - 10:
+
+                    print("Re-queuing corrupt job: {sha1}".format(sha1=file))
+
+                    # Remove file
+                    os.unlink(filename)
+
+                    # If file was not modified in the last 10 seconds, lets
+                    # consider it corrupt and re-queue
+                    QUEUE.put(file)
 
 
 def execute_command(command):
@@ -292,10 +343,25 @@ def process_queue():
     while RUNNING:
 
         # Get the next commit hash from the queue
-        sha1 = QUEUE.get(True)
+        try:
 
-        # Start build
-        build(sha1)
+            wait = Options.app.cleanup_frequency
+
+            if wait < .1:
+
+                # Wait at least .1s
+                wait = .1
+
+            # Try getting an item.
+            sha1 = QUEUE.get(True, wait)
+
+            # Start build
+            build(sha1)
+        except queue.Empty:
+
+            # There hasn't been anything to do for cleanup_frequency seconds,
+            # lets do some housekeeping
+            retry_stale_builds()
 
 
 def watch_queue():
@@ -596,7 +662,13 @@ def main():
         Options.app.port = int(Options.app.port)
     except ValueError:
         print("Invalid listen port specified!")
-        exit(1)
+        sys.exit(1)
+
+    try:
+        Options.app.cleanup_frequency = float(Options.app.cleanup_frequency)
+    except ValueError:
+        print("Invalid cleanup frequency specified!")
+        sys.exit(1)
 
     # Register routes
     if Options.app.push_endpoint != '':
