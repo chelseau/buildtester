@@ -723,7 +723,7 @@ def main():
             context = context.lower()
             label = label.title()
         else:
-            context = Options.app.default_context
+            context = Options.app.default_context.lower()
 
         # Add to collection
         commands[label] = context, command
