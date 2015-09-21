@@ -758,10 +758,10 @@ def main(argv=sys.argv[1:]):
 
     # Register routes
     if Options.app.push_endpoint != '':
-        app.add_url_rule(Options.app.push_endpoint, 'post', gh_push)
+        app.route(Options.app.push_endpoint, methods=['post'])(gh_push)
 
     if Options.app.status_endpoint != '':
-        app.add_url_rule(Options.app.status_endpoint, 'get', build_status)
+        app.route(Options.app.status_endpoint, methods=['get'])(build_status)
 
     # Initialize dirs
     init_dirs()
