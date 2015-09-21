@@ -366,7 +366,7 @@ def process_queue():
 
 def watch_queue():
     """
-    Main event loop. Gets things going
+    Watches the file queue for changes
 
     :return: None
     """
@@ -693,11 +693,19 @@ def main():
 
     # Init threads
     process = threading.Thread(target=process_queue)
-    watch = threading.Thread(target=watch_queue)
+
+    if Options.files.pickup is not None:
+
+        # Only init the queue watching thread if there is a file queue
+        watch = threading.Thread(target=watch_queue)
 
     # Start thread
     process.start()
-    watch.start()
+
+    if Options.files.pickup is not None:
+
+        # Only start the queue watching thread if there is a file queue
+        watch.start()
 
     app.run(port=Options.app.port)
 
@@ -706,7 +714,11 @@ def main():
 
     # Wait for threads to finish
     process.join()
-    watch.join()
+
+    if Options.files.pickup is not None:
+
+        # Only wait on the queue watching thread if there is a file queue
+        watch.join()
 
 if __name__ == '__main__':
 
