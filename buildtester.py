@@ -630,8 +630,11 @@ def main():
             if isinstance(options_section, dict):
 
                 for key, val in parser.items(section):
-                    # Fill up our dictionary
-                    options_section[key] = val
+                    # Fill up our dictionary. Because optionxform will make
+                    # the key lowercase, but we don't want to replace that
+                    # lest we make the entire file case-sensitive, just
+                    # apply the title method to the keys
+                    options_section[key.title()] = val
 
             else:
                 for key in parser[section]:
