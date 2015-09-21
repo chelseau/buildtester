@@ -217,65 +217,70 @@ def init_files():
     return True
 
 
-def write_build_file(data, status, sha1, context):
+def write_build_file(data, status, sha1, context, write_file=True,
+                     post_gh=True):
     """
     Writes the data to the build file for the given hash
     :param data: a list of data
     :param status: the status of the build
     :param sha1: the commit hash to use for the filename
     :param context: The context of this status
+    :param write_file: Should we write the file?
+    :param post_gh: Should we post to GitHub?
     :return: None
     """
 
     global GITHUB_LOCK
 
-    # Path to file
-    path = os.path.join(Options.files.builds, sha1)
+    if write_file:
+        # Path to file
+        path = os.path.join(Options.files.builds, sha1)
 
-    # Open data file
-    with open(path, 'w') as file_:
+        # Open data file
+        with open(path, 'w') as file_:
 
-        # Write data
-        if data is not None:
+            # Write data
+            if data is not None:
 
-            # Write a status + data
-            file_.write(json.dumps(dict(status=status,
-                                        data=data), indent=4))
-        else:
+                # Write a status + data
+                file_.write(json.dumps(dict(status=status,
+                                            data=data), indent=4))
+            else:
 
-            # Write a status only
-            file_.write(json.dumps(dict(status=status), indent=4))
+                # Write a status only
+                file_.write(json.dumps(dict(status=status), indent=4))
 
-    description = getattr(Options.status, status)
+    if post_gh:
+        description = getattr(Options.status, status)
 
-    if status == 'queued':
+        if status == 'queued':
 
-        # GitHub doesn't support a queued status
-        status = 'pending'
+            # GitHub doesn't support a queued status
+            status = 'pending'
 
-    # Update GH status
-    data = dict(
-        state=status,
-        description=description,
-        context=context
-    )
+        # Update GH status
+        data = dict(
+            state=status,
+            description=description,
+            context=context
+        )
 
-    if Options.app.status_uri is not None:
+        if Options.app.status_uri is not None:
 
-        # Only set target url if it is configured
-        data['target_url'] = Options.app.status_uri.format(sha1=sha1)
+            # Only set target url if it is configured
+            data['target_url'] = Options.app.status_uri.format(sha1=sha1)
 
-    # Acquire GH lock
-    GITHUB_LOCK.acquire()
+        # Acquire GH lock
+        GITHUB_LOCK.acquire()
 
-    try:
-        github.post(Options.github.status_endpoint.format(sha1=sha1), data)
-    except GitHubError as e:
-        sys.stderr.write("Error posting to GitHub: {err}\n".format(
-            err=str(e)))
-    finally:
-        # Release GH lock
-        GITHUB_LOCK.release()
+        try:
+            github.post(Options.github.status_endpoint.format(sha1=sha1), data)
+        except GitHubError as e:
+            sys.stderr.write("Error posting to GitHub: {err}\n".format(
+                err=str(e)))
+        finally:
+            # Release GH lock
+            GITHUB_LOCK.release()
 
 
 def build(sha1):
@@ -330,7 +335,7 @@ def build(sha1):
                 good_contexts:
 
             # Mark as pending
-            write_build_file(None, 'pending', sha1, context)
+            write_build_file(None, 'pending', sha1, context, write_file=False)
 
         # Execute command
         stdout, ret = execute_command(command.split(" "))
@@ -359,20 +364,27 @@ def build(sha1):
             # Stop processing
             break
 
+    written = False
+
     for context in good_contexts:
+
         # Write a success status
-        write_build_file(data, 'success', sha1, context)
+        write_build_file(data, 'success', sha1, context,
+                         write_file=not written)
+        written = True
 
     if bad_context is not None and Options.app.default_context != bad_context:
 
         # Mark as failure if there were any failures and the default context
         # was not already used
-        write_build_file(None, 'failure', sha1, Options.app.default_context)
+        write_build_file(None, 'failure', sha1, Options.app.default_context,
+                         write_file=False)
     elif bad_context is None and Options.app.default_context not in \
             good_contexts:
         # Mark as success if there were no failures and the default context
         # was not already used
-        write_build_file(None, 'success', sha1, Options.app.default_context)
+        write_build_file(data, 'success', sha1, Options.app.default_context,
+                         write_file=False)
 
     # Cleanup temp dir
     clean_temp()
