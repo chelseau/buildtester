@@ -4,6 +4,7 @@ from flask import Flask, request, make_response, render_template
 from flask.ext.github import GitHub, GitHubError
 from collections import OrderedDict
 import configparser
+from datetime import datetime
 import atexit
 import hashlib
 import hmac
@@ -497,6 +498,48 @@ def shutdown(signum, frame):
 
     # Throw signal
     os.kill(os.getpid(), signum)
+
+
+@app.route('/')
+def home():
+    """
+    Displays the most recent builds
+
+    :return: response
+    """
+
+    commits = list()
+
+    for root, dirs, files in os.walk(Options.files.builds):
+        for file in files:
+
+            # Add to collection
+            commits.append(file)
+
+    # Sort by last updated descending
+    list(sorted(commits, key=lambda f: os.stat(os.path.join(
+        Options.files.builds, f)).st_mtime, reverse=True))
+
+    builds = list()
+
+    for commit in commits:
+
+        # Full path
+        filename = os.path.join(Options.files.builds, commit)
+
+        # Get mtime
+        mtime = os.stat(filename).st_mtime
+
+        # Format mtime
+        mtime = datetime.fromtimestamp(mtime).strftime('%B %d, %Y %H:%M')
+
+        with open(filename, 'r') as file_:
+            builds.append(dict(sha1=commit,
+                               date=mtime,
+                               data=json.load(file_)))
+
+    return render_template('index.html', builds=builds,
+                           title=Options.app.title)
 
 
 def build_status(sha1):

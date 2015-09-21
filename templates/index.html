@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block body %}
+    <h2>Recent Builds</h2>
+    {% if message|length > 0 %}
+    <p>Latest commit message:</p>
+    <p class="alert alert-info">{{ message }}</p>
+    {% endif %}
+    <h2><span class="label label-{{ status_label }}">{{ status_nice }}</span></h2>
+    {% if builds|length > 0 %}
+    <ol>
+        {% for build in builds %}
+        <li>
+            <a href="{{ url_for('build_status', sha1=build['sha1']) }}">{{ build['sha1'] }}</a> (Built on {{ build['date'] }})
+        </li>
+        {% endfor %}
+    </ol>
+    {% endif %}
+</body>
+</html>
+{% endblock %}
