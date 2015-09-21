@@ -209,9 +209,9 @@ def write_build_file(data, status, sha1):
             data['target_url'] = Options.app.status_uri.format(sha1=sha1)
 
         github.post(Options.github.status_endpoint.format(sha1=sha1), data)
-    except GitHubError:
-        # Ignore error
-        pass
+    except GitHubError as e:
+        sys.stderr.write("Error posting to GitHub: {err}\n".format(
+            err=str(e)))
 
     # Release GH lock
     GITHUB_LOCK.release()
