@@ -23,6 +23,14 @@ to GitHub merging.
       the commands will not work as they will be treated as separate arguments
       **even if quoted**. I may change this in the future if a need arises,
       but, spaces shouldn't be in filenames.
+* While not necessary, if you wish to ensure that failed builds cannot be
+  merged into your master branch (or any other branch), you can enable branch
+  protection with status checks.
+
+    To do this, visit your repo and go to branch settings. Under *Require
+    status checks to pass before merging*, a list of checks will be displayed.
+    You need to have at least one set already to use it (which means before you
+    can enable that you have to successfully push a status.)
 
 ## Issues
 Feel free to send any issues or pull requests to [buildtester](https://github.com/chelseau/buildtester).
