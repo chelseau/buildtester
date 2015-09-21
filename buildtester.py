@@ -111,6 +111,14 @@ def retry_stale_builds():
             # Absolute filename
             filename = os.path.join(Options.files.builds, file)
 
+            # Get file stats
+            stat = os.stat(filename)
+
+            if stat.st_size > 32:
+
+                # This file is > 32 bytes, meaning it is a completed build
+                continue
+
             try:
 
                 # Wrap this whole thing in a super generic try-catch because
