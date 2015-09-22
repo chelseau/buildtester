@@ -537,35 +537,39 @@ def home():
         # Format mtime
         mtime = datetime.fromtimestamp(mtime).strftime('%B %d, %Y %H:%M')
 
+        data = dict()
+
         if count <= 5:
 
             # Only load data for the 5 most recent builds
             with open(filename, 'r') as file_:
                 data = json.load(file_)
 
-            if len(data['data']) > 0:
-                checkout = data['data'][0]
-                if checkout['cmd'] == 'Checkout' and checkout['code'] == 0:
-                    result = re.search('^HEAD is now at [0-f]+\s*(.+$)',
-                                       checkout['out'])
+        # Initialize required data
+        if not isinstance(data, dict):
+            data = dict()
+        data['status'] = data.get('status', '')
+        if not isinstance(data.get('data'), list):
+            data['data'] = list()
+        message = ''
 
-                    if result:
+        if len(data['data']) > 0:
+            checkout = data['data'][0]
+            if checkout['cmd'] == 'Checkout' and checkout['code'] == 0:
+                result = re.search('^HEAD is now at [0-f]+\s*(.+$)',
+                                   checkout['out'])
 
-                        # Get the actual message
-                        message = result.group(1)
-                    else:
+                if result:
 
-                        # If the regexp didn't match for some reason, fall back
-                        # to the raw data
-                        message = checkout['out']
+                    # Get the actual message
+                    message = result.group(1)
+                else:
 
-        else:
+                    # If the regexp didn't match for some reason, fall back
+                    # to the raw data
+                    message = checkout['out']
 
-            # Initialize empty list
-            data = dict(status=None, data=dict())
-            message = ''
-
-        status_label, status_nice = resolve_status(data.get('status'))
+        status_label, status_nice = resolve_status(data['status'])
 
         builds.append(dict(sha1=commit,
                            date=mtime,
