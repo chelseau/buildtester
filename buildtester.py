@@ -517,7 +517,7 @@ def home():
             commits.append(file)
 
     # Sort by last updated descending
-    list(sorted(commits, key=lambda f: os.stat(os.path.join(
+    commits = list(sorted(commits, key=lambda f: os.stat(os.path.join(
         Options.files.builds, f)).st_mtime, reverse=True))
 
     builds = list()
