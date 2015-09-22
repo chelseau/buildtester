@@ -522,7 +522,11 @@ def home():
 
     builds = list()
 
+    count = 0
     for commit in commits:
+
+        # Increment counter
+        count += 1
 
         # Full path
         filename = os.path.join(Options.files.builds, commit)
@@ -533,13 +537,73 @@ def home():
         # Format mtime
         mtime = datetime.fromtimestamp(mtime).strftime('%B %d, %Y %H:%M')
 
-        with open(filename, 'r') as file_:
-            builds.append(dict(sha1=commit,
-                               date=mtime,
-                               data=json.load(file_)))
+        if count <= 5:
+
+            # Only load data for the 5 most recent builds
+            with open(filename, 'r') as file_:
+                data = json.load(file_)
+
+            if len(data['data']) > 0:
+                checkout = data['data'][0]
+                if checkout['cmd'] == 'Checkout' and checkout['code'] == 0:
+                    result = re.search('^HEAD is now at [0-f]+\s*(.+$)',
+                                       checkout['out'])
+
+                    if result:
+
+                        # Get the actual message
+                        message = result.group(1)
+                    else:
+
+                        # If the regexp didn't match for some reason, fall back
+                        # to the raw data
+                        message = checkout['out']
+
+        else:
+
+            # Initialize empty list
+            data = dict(status=None, data=dict())
+            message = ''
+
+        status_label, status_nice = resolve_status(data.get('status'))
+
+        builds.append(dict(sha1=commit,
+                           date=mtime,
+                           status_nice=status_nice,
+                           status_label=status_label,
+                           message=message))
 
     return render_template('index.html', builds=builds,
                            title=Options.app.title)
+
+
+def resolve_status(code):
+    """
+    Get a label and status for the status code
+
+    :param code: The status to resolve
+    :return: A tuple containing the label and new status
+    """
+
+    # Default label
+    status_label = 'info'
+    if code == 'success':
+        status_nice = 'Build Succeeded'
+        status_label = 'success'
+    elif code == 'error':
+        status_nice = 'Build Failed (Internal Error)'
+        status_label = 'danger'
+    elif code == 'failure':
+        status_nice = 'Build Failed'
+        status_label = 'danger'
+    elif code == 'queued':
+        status_nice = 'Build Queued'
+    elif code == 'pending':
+        status_nice = 'Build Running'
+    else:
+        status_nice = code
+
+    return status_label, status_nice
 
 
 def build_status(sha1):
@@ -588,22 +652,7 @@ def build_status(sha1):
     data['message'] = ''
 
     # Default label
-    data['status_label'] = 'info'
-    if data['status'] == 'success':
-        data['status_nice'] = 'Build Succeeded'
-        data['status_label'] = 'success'
-    elif data['status'] == 'error':
-        data['status_nice'] = 'Build Failed (Internal Error)'
-        data['status_label'] = 'danger'
-    elif data['status'] == 'failure':
-        data['status_nice'] = 'Build Failed'
-        data['status_label'] = 'danger'
-    elif data['status'] == 'queued':
-        data['status_nice'] = 'Build Queued'
-    elif data['status'] == 'pending':
-        data['status_nice'] = 'Build Running'
-    else:
-        data['status_nice'] = data['status']
+    data['status_label'], data['status_nice'] = resolve_status(data['status'])
 
     if len(data['data']) > 0:
 

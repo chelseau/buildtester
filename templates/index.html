@@ -9,8 +9,13 @@
     {% if builds|length > 0 %}
     <ol>
         {% for build in builds %}
-        <li>
-            <a href="{{ url_for('build_status', sha1=build['sha1']) }}">{{ build['sha1'] }}</a> (Built on {{ build['date'] }})
+        <li class="alert alert-info">
+            <h3>Built on {{ build['date'] }}</h3>
+            <a href="{{ url_for('build_status', sha1=build['sha1']) }}">{{ build['sha1'] }}</a><br>
+            {{ build['message'] }}
+            {% if build['status_nice']|length > 0 %}
+            <h3><span class="label label-{{ build['status_label'] }}">{{ build['status_nice'] }}</span></h3>
+            {% endif %}
         </li>
         {% endfor %}
     </ol>
