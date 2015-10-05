@@ -73,6 +73,8 @@ class Options:
 
 # Global variables
 QUEUE = queue.Queue()
+WATCH = None
+PROCESS = None
 RUNNING = True
 LOCK = threading.Lock()
 GITHUB_LOCK = threading.Lock()
@@ -435,6 +437,8 @@ def watch_queue():
 
     global RUNNING
     global LOCK
+    global WATCH
+    global PROCESS
 
     # Process queue
     while RUNNING:
@@ -757,14 +761,16 @@ def token_getter():
     return Options.github.access_token
 
 
-def main(argv=sys.argv[1:]):
+def initialize(argv=sys.argv[1:]):
     """
-    Startup the server
+    Initialize the server
 
     :return: None
     """
 
+    global PROCESS
     global RUNNING
+    global WATCH
 
     if len(argv) > 0:
 
@@ -871,34 +877,55 @@ def main(argv=sys.argv[1:]):
     atexit.register(clean_temp)
 
     # Init threads
-    process = threading.Thread(target=process_queue)
+    PROCESS = threading.Thread(target=process_queue)
 
     if Options.files.pickup is not None:
 
         # Only init the queue watching thread if there is a file queue
-        watch = threading.Thread(target=watch_queue)
+        WATCH = threading.Thread(target=watch_queue)
 
     # Start thread
-    process.start()
+    PROCESS.start()
 
     if Options.files.pickup is not None:
 
         # Only start the queue watching thread if there is a file queue
-        watch.start()
+        WATCH.start()
 
+
+def startup():
+    """
+    Starts up the Flask server
+
+    :return: None
+    """
     app.run(port=Options.app.port)
+
+
+def deinitialize():
+    """
+    De-initializes the server
+
+    :return: None
+    """
+    global RUNNING
+    global LOCK
+    global WATCH
+    global PROCESS
 
     # Stop the threads
     RUNNING = False
 
     # Wait for threads to finish
-    process.join()
+    PROCESS.join()
 
     if Options.files.pickup is not None:
 
         # Only wait on the queue watching thread if there is a file queue
-        watch.join()
+        WATCH.join()
 
 if __name__ == '__main__':
 
-    main()
+    initialize()
+    startup()
+    deinitialize()
