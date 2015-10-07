@@ -446,6 +446,8 @@ def watch_queue():
         if Options.files.pickup is not None and \
                 os.path.exists(Options.files.pickup):
 
+            hashes = list()
+
             # Acquire lock
             LOCK.acquire()
 
@@ -460,12 +462,7 @@ def watch_queue():
 
                             sha1 = sha1.strip()
 
-                            # Mark as queued
-                            write_build_file(None, 'queued', sha1,
-                                             Options.app.default_context)
-
-                            # Add to queue
-                            QUEUE.put(sha1)
+                            hashes.append(sha1)
 
                     except ValueError:
                         print("Invalid sha1 commit: {sha1}".format(sha1=sha1))
@@ -479,6 +476,14 @@ def watch_queue():
 
             # Release lock
             LOCK.release()
+
+            for sha1 in hashes:
+                # Mark as queued
+                write_build_file(None, 'queued', sha1,
+                                 Options.app.default_context)
+
+                # Add to queue
+                QUEUE.put(sha1)
 
         # Sleep for .1 seconds before we look for more builds to perform
         time.sleep(0.1)
