@@ -361,7 +361,9 @@ def build(sha1):
             write_build_file(data, 'failure', sha1, context)
 
             # Remove
-            good_contexts.remove(context)
+            if context in good_contexts:
+                good_contexts.remove(context)
+
             bad_context = context
 
             # Stop processing
