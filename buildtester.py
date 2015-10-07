@@ -89,17 +89,6 @@ app.config['GITHUB_CLIENT_SECRET'] = ''
 github = GitHub(app)
 
 
-def clean_temp():
-    """
-    Cleanup temp path
-
-    :return: None
-    """
-
-    # Remove temp path
-    subprocess.call(['rm', '-rf', Options.files.temp])
-
-
 def retry_stale_builds():
     """
     Locates and reschedules stale builds
@@ -202,9 +191,6 @@ def init_files():
     # Change working directory
     os.chdir(Options.files.storage)
 
-    # Clean temp dir
-    clean_temp()
-
     # Init repo
     stdout, ret = execute_command(['git', 'clone', Options.github.repository,
                                    Options.files.temp, '-b',
@@ -213,9 +199,26 @@ def init_files():
     # Change working directory
     os.chdir(Options.files.temp)
 
+    # Cleanup any untracked files/directories
+    execute_command(['git', 'clean', '-f', '-d'])
+
     if ret != 0:
-        print("Clone failed ({code}): {error}".format(error=stdout, code=ret))
-        return False
+
+        # Fetch remote repo
+        stdout, ret = execute_command(['git', 'fetch', 'origin',
+                                       Options.github.branch])
+        if ret != 0:
+            print("Fetch failed ({code}): {error}".format(error=stdout,
+                                                          code=ret))
+            return False
+
+        # Hard reset to get to the right commit
+        stdout, ret = execute_command(['git', 'reset', '--hard', 'origin/' +
+                                       Options.github.branch])
+        if ret != 0:
+            print("Reset failed ({code}): {error}".format(error=stdout,
+                                                          code=ret))
+            return False
 
     return True
 
@@ -295,9 +298,6 @@ def build(sha1):
     """
 
     print("Building {sha1}".format(sha1=sha1))
-
-    # Cleanup temp dir
-    clean_temp()
 
     # Initialize repo to the given sha1 commit
     if not init_files():
@@ -391,8 +391,8 @@ def build(sha1):
         write_build_file(data, 'success', sha1, Options.app.default_context,
                          write_file=False)
 
-    # Cleanup temp dir
-    clean_temp()
+    # Init dirs
+    init_dirs()
 
 
 def process_queue():
@@ -881,7 +881,7 @@ def initialize(argv=sys.argv[1:]):
     signal.signal(signal.SIGHUP, shutdown)
 
     # Register shutdown handler
-    atexit.register(clean_temp)
+    atexit.register(init_dirs)
 
     # Init threads
     PROCESS = threading.Thread(target=process_queue)
