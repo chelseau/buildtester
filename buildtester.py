@@ -371,10 +371,12 @@ def build(sha1):
 
     written = False
 
+    status = 'success' if bad_context is None else 'failure'
+
     for context in good_contexts:
 
         # Write a success status
-        write_build_file(data, 'success', sha1, context,
+        write_build_file(data, status, sha1, context,
                          write_file=not written)
         written = True
 
