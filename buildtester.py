@@ -238,6 +238,10 @@ def write_build_file(data, status, sha1, context, write_file=True,
 
     global GITHUB_LOCK
 
+    print("Building {sha1} stage {stage}: {status}".format(sha1=sha1,
+                                                           stage=context,
+                                                           status=status))
+
     if write_file:
         # Path to file
         path = os.path.join(Options.files.builds, sha1)
@@ -388,6 +392,7 @@ def build(sha1):
                          write_file=False)
     elif bad_context is None and Options.app.default_context not in \
             good_contexts:
+
         # Mark as success if there were no failures and the default context
         # was not already used
         write_build_file(data, 'success', sha1, Options.app.default_context,
@@ -936,5 +941,13 @@ def deinitialize():
 if __name__ == '__main__':
 
     initialize()
-    startup()
+    if Options.app.port != 0:
+
+        # Startup Flask if necessary
+        startup()
+    else:
+
+        # Wait for the process to finish
+        PROCESS.join()
+
     deinitialize()
