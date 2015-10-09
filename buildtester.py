@@ -307,7 +307,8 @@ def build(sha1):
     if not init_files():
 
         # Mark as error
-        write_build_file(None, 'error', sha1, Options.app.default_context)
+        write_build_file(None, 'error', sha1, Options.app.default_context,
+                         post_gh=False)
 
         # Abort
         return
@@ -315,7 +316,8 @@ def build(sha1):
     data = list()
 
     # Mark as pending
-    write_build_file(None, 'pending', sha1, Options.app.default_context)
+    write_build_file(None, 'pending', sha1, Options.app.default_context,
+                     post_gh=False)
 
     # Checkout commit
     stdout, ret = execute_command(['git', 'reset', '--hard', sha1])
@@ -327,8 +329,43 @@ def build(sha1):
     ))
 
     if ret != 0:
-        write_build_file(data, 'failure', sha1, Options.app.default_context)
+        write_build_file(data, 'failure', sha1, Options.app.default_context,
+                         post_gh=False)
         return
+
+    # Get the full SHA1 hash
+    stdout, ret = execute_command(['git', 'rev-parse', 'HEAD'])
+
+    if ret != 0:
+
+        data.append(dict(
+            cmd='Rev-parse',
+            out=stdout,
+            code=ret
+        ))
+
+        write_build_file(data, 'failure', sha1,
+                         Options.app.default_context, post_gh=False)
+        return
+
+    stdout = stdout.strip()
+
+    if stdout != sha1:
+        # Source and destination files
+        destination = os.path.join(Options.files.builds, stdout)
+
+        write_build_file([dict(redirect=stdout)], 'success', sha1,
+                         Options.app.default_context, post_gh=False)
+
+        if os.path.exists(destination):
+            # No more to do
+            return
+
+        # Use full hash
+        sha1 = stdout
+
+    # Mark as pending
+    write_build_file(None, 'pending', sha1, Options.app.default_context)
 
     good_contexts = list()
     bad_context = None
@@ -489,7 +526,7 @@ def watch_queue():
             for sha1 in hashes:
                 # Mark as queued
                 write_build_file(None, 'queued', sha1,
-                                 Options.app.default_context)
+                                 Options.app.default_context, post_gh=False)
 
                 # Add to queue
                 QUEUE.put(sha1)
@@ -549,12 +586,6 @@ def home():
         # Full path
         filename = os.path.join(Options.files.builds, commit)
 
-        # Get mtime
-        mtime = os.stat(filename).st_mtime
-
-        # Format mtime
-        mtime = datetime.fromtimestamp(mtime).strftime('%B %d, %Y %H:%M')
-
         data = dict()
 
         if count <= 5:
@@ -570,8 +601,24 @@ def home():
         if not isinstance(data.get('data'), list):
             data['data'] = list()
         message = ''
+        redirect = False
 
         if len(data['data']) > 0:
+
+            redirect = data['data'][0].get('redirect', False)
+            if redirect is not False:
+                data['data'][0] = dict(
+                    cmd='Redirect',
+                    code=0,
+                    out='Redirects to {sha1}'.format(sha1=redirect)
+                )
+
+                message = 'Resolved from {} to {}'.format(commit, redirect)
+                commit = redirect
+
+                # Full path
+                filename = os.path.join(Options.files.builds, commit)
+
             checkout = data['data'][0]
             if checkout['cmd'] == 'Checkout' and checkout['code'] == 0:
                 result = re.search('^HEAD is now at [0-f]+\s*(.+$)',
@@ -588,6 +635,15 @@ def home():
                     message = checkout['out']
 
         status_label, status_nice = resolve_status(data['status'])
+
+        # Get mtime
+        mtime = os.stat(filename).st_mtime
+
+        # Format mtime
+        mtime = datetime.fromtimestamp(mtime).strftime('%B %d, %Y %H:%M')
+
+        if redirect is not False:
+            status_nice = ''
 
         builds.append(dict(sha1=commit,
                            date=mtime,
@@ -643,6 +699,11 @@ def build_status(sha1):
     if os.path.exists(filename):
         with open(filename) as file:
             data = json.load(file)
+
+        if len(data['data']) > 0 and data['data'][0].get(
+                'redirect') is not None:
+            # Load the redirect
+            return build_status(data['data'][0].get('redirect'))
     else:
         # Acquire lock
         LOCK.acquire()
@@ -656,7 +717,8 @@ def build_status(sha1):
             # Memory queue only
 
             # Mark as queued
-            write_build_file(None, 'queued', sha1, Options.app.default_context)
+            write_build_file(None, 'queued', sha1, Options.app.default_context,
+                             post_gh=False)
 
             # Just store in memory
             QUEUE.put(sha1)
@@ -753,7 +815,8 @@ def gh_push():
     else:
 
         # Mark as queued
-        write_build_file(None, 'queued', sha1, Options.app.default_context)
+        write_build_file(None, 'queued', sha1, Options.app.default_context,
+                         post_gh=False)
 
         # Just store in memory
         QUEUE.put(sha1)
