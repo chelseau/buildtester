@@ -89,6 +89,29 @@ app.config['GITHUB_CLIENT_SECRET'] = ''
 github = GitHub(app)
 
 
+def cleanup_hash(sha1):
+    """
+    Checks if a hash is valid. Returns the cleaned up hash if so, else False
+
+    :param sha1: The hash to check
+    :return: mixed
+    """
+
+    sha1 = sha1.strip()
+
+    try:
+        if len(sha1) > 0 and int(sha1, 16) > 0:
+
+            # Hash is valid
+            return sha1
+
+    except ValueError:
+        print("Invalid sha1 commit: {sha1}".format(sha1=sha1))
+
+    # Hash is invalid
+    return False
+
+
 def retry_stale_builds():
     """
     Locates and reschedules stale builds
@@ -503,15 +526,10 @@ def watch_queue():
                 # Get all the hashes
                 for sha1 in file_:
 
-                    try:
-                        if len(sha1.strip()) > 0 and int(sha1, 16) > 0:
+                    sha1 = cleanup_hash(sha1)
 
-                            sha1 = sha1.strip()
-
-                            hashes.append(sha1)
-
-                    except ValueError:
-                        print("Invalid sha1 commit: {sha1}".format(sha1=sha1))
+                    if sha1:
+                        hashes.append(sha1)
 
             # Open pickup file for writing
             with open(Options.files.pickup, "w") as file_:
@@ -694,9 +712,18 @@ def build_status(sha1):
 
     global LOCK
 
-    filename = os.path.join(Options.files.builds, sha1)
+    sha1 = cleanup_hash(sha1)
 
-    if os.path.exists(filename):
+    if sha1 is not False:
+        filename = os.path.join(Options.files.builds, sha1)
+
+    if sha1 is False:
+        data = dict()
+        data['data'] = list()
+        data['status'] = 'failure'
+        sha1 = 'INVALID'
+        data['message'] = 'Invalid commit requested'
+    elif os.path.exists(filename):
         with open(filename) as file:
             data = json.load(file)
 

@@ -1,7 +1,11 @@
 {% extends "layout.html" %}
 {% block body %}
     <h2>Build Details</h2>
+    {% if sha1 == 'INVALID' %}
+    <p>You have requested the status of an invalid commit.</p>
+    {% else %}
     <p>Displaying build details for <code><a href="{{ commit_uri }}">{{ sha1 }}</a></code></p>
+    {% endif %}
     {% if message|length > 0 %}
     <p>Latest commit message:</p>
     <p class="alert alert-info">{{ message }}</p>
