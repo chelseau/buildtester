@@ -215,7 +215,8 @@ def init_files():
     os.chdir(Options.files.storage)
 
     # Init repo
-    stdout, ret = execute_command(['git', 'clone', Options.github.repository,
+    stdout, ret = execute_command(['git', 'clone', '--recursive',
+                                   Options.github.repository,
                                    Options.files.temp, '-b',
                                    Options.github.branch])
 
